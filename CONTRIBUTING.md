@@ -1,21 +1,22 @@
-# プロジェクト制約
+# Project Constraints
 
-- このプロジェクトでビルドされる実行ファイル名は必ず `configure` でなければなりません。
-- ユーザーはトップディレクトリで `./configure` でCLIを起動できる必要があります。
-- 他のバイナリ名やエイリアスは禁止です。
-- コードを追加して100行増えるたびにこまめにリファクタリングします。
+- The executable file built by this project must be named `configure`.
+- Users must be able to launch the CLI using `./configure` in the top directory.
+- Other binary names or aliases are prohibited.
+- Refactor the code every time it grows by 100 lines.
+- All documentation, comments, and code must be written in English.
 
-このルールは開発・配布・運用すべてのフェーズで厳守してください。
+These rules must be strictly followed in all phases of development, distribution, and operation.
 
-# テスト実行
+# Running Tests
 
-Linux/WSL環境でのみシステム系テストが実行され、他の環境ではスキップされます。
+System tests are only executed in Linux/WSL environments and are skipped in other environments.
 
-テストを実行するには、以下のコマンドを使用してください：
+To run the tests, use the following command:
 
 ```sh
 go test -v ./cmd/test/...
 ```
 
-これで、WSL環境でのみ該当テストが実行され、Windows環境ではスキップされるはずです。
-もし他にもテストや動作で気になる点があればご指摘ください。
+This will execute the relevant tests only in WSL environments and skip them in Windows environments.
+If you have any other concerns about tests or functionality, please let us know.

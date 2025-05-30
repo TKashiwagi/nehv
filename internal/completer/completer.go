@@ -9,7 +9,7 @@ import (
 // CmdNode represents a node in the command tree
 type CmdNode struct {
 	Children map[string]*CmdNode
-	IsValue  bool // 値ノードか
+	IsValue  bool // Whether this is a value node
 }
 
 var rootCmdNode = &CmdNode{
@@ -60,7 +60,7 @@ type CLICompleter struct{}
 
 // Do implements readline.AutoCompleter interface
 func (c *CLICompleter) Do(line []rune, pos int) ([][]rune, int) {
-	// 現在の単語の先頭を探す
+	// Find the start of the current word
 	start := pos
 	for start > 0 && line[start-1] != ' ' {
 		start--
@@ -68,14 +68,14 @@ func (c *CLICompleter) Do(line []rune, pos int) ([][]rune, int) {
 	prefix := string(line[start:pos])
 	tokens := strings.Fields(string(line[:start]))
 
-	// スペースで終わっている場合はprefixなしで次階層候補
+	// If ending with space, get next level candidates without prefix
 	if pos > 0 && line[pos-1] == ' ' {
 		tokens = append(tokens, "")
 		prefix = ""
 		start = pos
 	}
 
-	// ? で候補一覧表示
+	// Show candidate list with ?
 	if prefix == "?" {
 		candidates := getCompletionsStrict(tokens, "")
 		if len(candidates) > 0 {
@@ -87,32 +87,32 @@ func (c *CLICompleter) Do(line []rune, pos int) ([][]rune, int) {
 		return nil, pos
 	}
 
-	// 補完候補を取得
+	// Get completion candidates
 	completions := getCompletionsStrict(tokens, prefix)
 	if len(completions) == 0 {
 		return nil, pos
 	}
 
-	// 候補をソート
+	// Sort candidates
 	sort.Strings(completions)
 
-	// 結果を返す
+	// Return results
 	var result [][]rune
 	for _, comp := range completions {
-		// すべての補完候補にスペースを追加
+		// Add space to all completion candidates
 		comp = comp + " "
-		// 補完語そのものを返す（prefix部分はreadlineが削除する）
+		// Return the completion word itself (readline will remove the prefix part)
 		result = append(result, []rune(comp[len(prefix):]))
 	}
 	return result, start
 }
 
-// getCompletionsStrict: prefix以外のトークンでツリーを降り、prefix一致のみ候補
+// getCompletionsStrict: traverse the tree with tokens except prefix, only return prefix matches
 func getCompletionsStrict(tokens []string, prefix string) []string {
 	node := rootCmdNode
 	for _, t := range tokens {
 		if t == "" {
-			// 空トークンは階層を降りない（スペース直後）
+			// Empty token doesn't descend the tree (right after space)
 			break
 		}
 		if node.Children == nil {
@@ -125,25 +125,25 @@ func getCompletionsStrict(tokens []string, prefix string) []string {
 		node = child
 	}
 
-	// 子ノードがない場合は補完しない
+	// Don't complete if there are no child nodes
 	if node.Children == nil {
 		return nil
 	}
 
-	// 候補を収集
+	// Collect candidates
 	var res []string
 	for k := range node.Children {
-		// 部分一致の場合のみ候補に追加
+		// Only add candidates that match the prefix
 		if strings.HasPrefix(k, prefix) {
 			res = append(res, k)
 		}
 	}
 
-	// 候補が1つの場合は完全一致として扱う
+	// If there's only one candidate, treat it as an exact match
 	if len(res) == 1 {
 		return res
 	}
 
-	// 候補が複数の場合は部分一致のみを返す
+	// If there are multiple candidates, return only prefix matches
 	return res
 }

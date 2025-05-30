@@ -1,0 +1,7 @@
+hostname: vyos-router
+interfaces:
+    eth0:
+        address: ""
+        mac: 11:11:11:11:11:1B
+dns: []
+default_route: ""

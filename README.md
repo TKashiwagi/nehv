@@ -1,2 +1,2 @@
 # configure
-VyOS風ネットワークCLI
+VyOS-style Network CLI

@@ -16,13 +16,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CommandManager handles command execution
+// CommandManager handles command execution and configuration management
 type CommandManager struct {
 	configManager *config.ConfigManager
 	rl            *readline.Instance
 }
 
-// NewCommandManager creates a new CommandManager instance
+// NewCommandManager creates a new CommandManager instance with the specified configuration files
 func NewCommandManager(bootPath, runningPath string) (*CommandManager, error) {
 	cm := config.NewConfigManager(bootPath, runningPath)
 	if err := cm.Load(); err != nil {
@@ -46,14 +46,14 @@ func NewCommandManager(bootPath, runningPath string) (*CommandManager, error) {
 	}, nil
 }
 
-// Close closes the command manager
+// Close releases resources used by the CommandManager
 func (cm *CommandManager) Close() {
 	if cm.rl != nil {
 		cm.rl.Close()
 	}
 }
 
-// Execute executes the configuration mode
+// Execute starts the interactive configuration mode
 func (cm *CommandManager) Execute() error {
 	defer cm.Close()
 
@@ -78,7 +78,7 @@ func (cm *CommandManager) Execute() error {
 			continue
 		}
 
-		if err := cm.handleCommand(fields); err != nil {
+		if err := cm.HandleCommand(fields); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
 	}
@@ -86,21 +86,21 @@ func (cm *CommandManager) Execute() error {
 	return nil
 }
 
-// handleCommand processes the command based on the input fields
-func (cm *CommandManager) handleCommand(fields []string) error {
+// HandleCommand processes the command based on the input fields
+func (cm *CommandManager) HandleCommand(fields []string) error {
 	switch {
 	case len(fields) == 1 && fields[0] == "exit":
 		os.Exit(0)
 	case len(fields) == 1 && (fields[0] == "help" || fields[0] == "?"):
 		cm.printHelp()
 	case len(fields) == 1 && fields[0] == "save":
-		return cm.handleSave()
+		return cm.HandleSave()
 	case len(fields) == 1 && fields[0] == "commit":
-		return cm.handleCommit()
+		return cm.HandleCommit()
 	case len(fields) == 3 && fields[0] == "set" && fields[1] == "dns":
-		return cm.handleSetDNS(fields[2])
+		return cm.HandleSetDNS(fields[2])
 	case len(fields) == 3 && fields[0] == "add" && fields[1] == "dns":
-		return cm.handleAddDNS(fields[2])
+		return cm.HandleAddDNS(fields[2])
 	case len(fields) == 2 && fields[0] == "show" && fields[1] == "dns":
 		cm.handleShowDNS()
 	case len(fields) == 2 && fields[0] == "show" && fields[1] == "config":
@@ -110,17 +110,19 @@ func (cm *CommandManager) handleCommand(fields []string) error {
 	case len(fields) == 2 && fields[0] == "show" && fields[1] == "version":
 		cm.handleShowVersion()
 	case len(fields) >= 4 && fields[0] == "set" && fields[1] == "interfaces":
-		return cm.handleSetInterface(fields[2:])
+		return cm.HandleSetInterface(fields[2:])
 	case len(fields) == 5 && fields[0] == "set" && fields[1] == "ip" && fields[2] == "route" && fields[3] == "default" && fields[4] == "via":
-		return cm.handleSetDefaultRoute(fields[5:])
+		return cm.HandleSetDefaultRoute(fields[5:])
 	default:
 		return fmt.Errorf("unknown command: %s", strings.Join(fields, " "))
 	}
 	return nil
 }
 
-// handleSave saves the current configuration
-func (cm *CommandManager) handleSave() error {
+// Configuration Management Methods
+
+// HandleSave saves the current configuration to both boot and running config files
+func (cm *CommandManager) HandleSave() error {
 	if err := cm.configManager.Save(); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
@@ -128,8 +130,8 @@ func (cm *CommandManager) handleSave() error {
 	return nil
 }
 
-// handleCommit applies the current configuration
-func (cm *CommandManager) handleCommit() error {
+// HandleCommit applies the current configuration to the system
+func (cm *CommandManager) HandleCommit() error {
 	cfg := cm.configManager.GetConfig()
 
 	// Write resolv.conf
@@ -153,8 +155,10 @@ func (cm *CommandManager) handleCommit() error {
 	return nil
 }
 
-// handleSetDNS sets the DNS servers
-func (cm *CommandManager) handleSetDNS(dnsAddr string) error {
+// DNS Configuration Methods
+
+// HandleSetDNS sets the DNS servers
+func (cm *CommandManager) HandleSetDNS(dnsAddr string) error {
 	if err := validator.ValidateDNSAddress(dnsAddr); err != nil {
 		return fmt.Errorf("invalid DNS address: %w", err)
 	}
@@ -163,8 +167,8 @@ func (cm *CommandManager) handleSetDNS(dnsAddr string) error {
 	return nil
 }
 
-// handleAddDNS adds a DNS server
-func (cm *CommandManager) handleAddDNS(dnsAddr string) error {
+// HandleAddDNS adds a DNS server
+func (cm *CommandManager) HandleAddDNS(dnsAddr string) error {
 	if err := validator.ValidateDNSAddress(dnsAddr); err != nil {
 		return fmt.Errorf("invalid DNS address: %w", err)
 	}
@@ -172,6 +176,60 @@ func (cm *CommandManager) handleAddDNS(dnsAddr string) error {
 	fmt.Printf("Added DNS: %s\n", dnsAddr)
 	return nil
 }
+
+// Interface Configuration Methods
+
+// HandleSetInterface sets interface parameters
+func (cm *CommandManager) HandleSetInterface(fields []string) error {
+	if len(fields) < 2 {
+		return fmt.Errorf("missing interface parameters")
+	}
+
+	ifaceName := fields[0]
+	param := fields[1]
+	value := ""
+	if len(fields) > 2 {
+		value = fields[2]
+	}
+
+	iface := cm.configManager.GetConfig().Interfaces[ifaceName]
+	switch param {
+	case "address":
+		if err := validator.ValidateIPAddress(value); err != nil {
+			return fmt.Errorf("invalid IP address: %w", err)
+		}
+		iface.Address = value
+	case "mac":
+		if err := validator.ValidateMACAddress(value); err != nil {
+			return fmt.Errorf("invalid MAC address: %w", err)
+		}
+		iface.MAC = value
+	default:
+		return fmt.Errorf("unknown interface parameter: %s", param)
+	}
+
+	cm.configManager.SetInterface(ifaceName, iface)
+	fmt.Printf("Set interface %s %s to %s\n", ifaceName, param, value)
+	return nil
+}
+
+// HandleSetDefaultRoute sets the default route
+func (cm *CommandManager) HandleSetDefaultRoute(fields []string) error {
+	if len(fields) == 0 {
+		return fmt.Errorf("missing IP address for default route")
+	}
+
+	ipAddr := fields[0]
+	if err := validator.ValidateIPAddress(ipAddr); err != nil {
+		return fmt.Errorf("invalid IP address: %w", err)
+	}
+
+	cm.configManager.SetDefaultRoute(ipAddr)
+	fmt.Printf("Set default route via %s\n", ipAddr)
+	return nil
+}
+
+// Display Methods
 
 // handleShowDNS displays the current DNS settings
 func (cm *CommandManager) handleShowDNS() {
@@ -205,55 +263,7 @@ func (cm *CommandManager) handleShowVersion() {
 	fmt.Printf("Author: %s\n", version.Author)
 }
 
-// handleSetInterface sets interface parameters
-func (cm *CommandManager) handleSetInterface(fields []string) error {
-	if len(fields) < 2 {
-		return fmt.Errorf("missing interface parameters")
-	}
-
-	ifaceName := fields[0]
-	param := fields[1]
-	value := ""
-	if len(fields) > 2 {
-		value = fields[2]
-	}
-
-	iface := cm.configManager.GetConfig().Interfaces[ifaceName]
-	switch param {
-	case "address":
-		if err := validator.ValidateIPAddress(value); err != nil {
-			return fmt.Errorf("invalid IP address: %w", err)
-		}
-		iface.Address = value
-	case "mac":
-		if err := validator.ValidateMACAddress(value); err != nil {
-			return fmt.Errorf("invalid MAC address: %w", err)
-		}
-		iface.MAC = value
-	default:
-		return fmt.Errorf("unknown interface parameter: %s", param)
-	}
-
-	cm.configManager.SetInterface(ifaceName, iface)
-	fmt.Printf("Set interface %s %s to %s\n", ifaceName, param, value)
-	return nil
-}
-
-// handleSetDefaultRoute sets the default route
-func (cm *CommandManager) handleSetDefaultRoute(fields []string) error {
-	if len(fields) == 0 {
-		return fmt.Errorf("missing IP address for default route")
-	}
-
-	ipAddr := fields[0]
-	if err := validator.ValidateIPAddress(ipAddr); err != nil {
-		return fmt.Errorf("invalid IP address: %w", err)
-	}
-
-	cm.configManager.SetDefaultRoute(ipAddr)
-	fmt.Printf("Set default route via %s\n", ipAddr)
-	return nil
-}
+// System Operation Methods
 
 // writeResolvConf writes DNS settings to /etc/resolv.conf
 func (cm *CommandManager) writeResolvConf(dnsServers []string) error {
@@ -273,6 +283,8 @@ func (cm *CommandManager) restartServices() error {
 func (cm *CommandManager) setDefaultRoute(route string) error {
 	return exec.Command("sudo", "ip", "route", "add", "default", "via", route).Run()
 }
+
+// Helper Methods
 
 // printHelp prints the help message
 func (cm *CommandManager) printHelp() {
@@ -334,6 +346,30 @@ func splitFields(s string) []string {
 	return res
 }
 
+// Test Helper Methods
+
+// GetConfig returns the current configuration
+func (cm *CommandManager) GetConfig() *config.Config {
+	return cm.configManager.GetConfig()
+}
+
+// SetDNS sets the DNS servers
+func (cm *CommandManager) SetDNS(servers []string) {
+	cm.configManager.SetDNS(servers)
+}
+
+// SetDefaultRoute sets the default route
+func (cm *CommandManager) SetDefaultRoute(route string) {
+	cm.configManager.SetDefaultRoute(route)
+}
+
+// SetInterface sets interface configuration
+func (cm *CommandManager) SetInterface(name string, iface config.InterfaceConfig) {
+	cm.configManager.SetInterface(name, iface)
+}
+
+// Root Command
+
 var rootCmd = &cobra.Command{
 	Use:   "configure",
 	Short: "Configure network settings",
@@ -351,6 +387,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// Execute executes the root command
 func Execute() error {
 	return rootCmd.Execute()
 }

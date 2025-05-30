@@ -18,11 +18,11 @@ func TestHandleSetDNS(t *testing.T) {
 
 	// Test case: Valid DNS address
 	dnsAddr := "8.8.8.8"
-	if err := cm.handleSetDNS(dnsAddr); err != nil {
-		t.Errorf("handleSetDNS failed: %v", err)
+	if err := cm.HandleSetDNS(dnsAddr); err != nil {
+		t.Errorf("HandleSetDNS failed: %v", err)
 	}
 
-	cfg := cm.configManager.GetConfig()
+	cfg := cm.GetConfig()
 	if len(cfg.DNS) == 0 {
 		t.Error("Expected DNS to be set, got empty slice")
 	} else if cfg.DNS[0] != dnsAddr {
@@ -40,11 +40,11 @@ func TestHandleAddDNS(t *testing.T) {
 
 	// Test case: Valid DNS address
 	dnsAddr := "1.1.1.1"
-	if err := cm.handleAddDNS(dnsAddr); err != nil {
-		t.Errorf("handleAddDNS failed: %v", err)
+	if err := cm.HandleAddDNS(dnsAddr); err != nil {
+		t.Errorf("HandleAddDNS failed: %v", err)
 	}
 
-	cfg := cm.configManager.GetConfig()
+	cfg := cm.GetConfig()
 	found := false
 	for _, dns := range cfg.DNS {
 		if dns == dnsAddr {
@@ -67,11 +67,11 @@ func TestHandleSetInterface(t *testing.T) {
 
 	// Test case: Valid interface parameters
 	fields := []string{"eth0", "address", "192.168.1.1"}
-	if err := cm.handleSetInterface(fields); err != nil {
-		t.Errorf("handleSetInterface failed: %v", err)
+	if err := cm.HandleSetInterface(fields); err != nil {
+		t.Errorf("HandleSetInterface failed: %v", err)
 	}
 
-	cfg := cm.configManager.GetConfig()
+	cfg := cm.GetConfig()
 	iface, exists := cfg.Interfaces["eth0"]
 	if !exists {
 		t.Error("Expected interface eth0 to exist")
@@ -90,11 +90,11 @@ func TestHandleSetDefaultRoute(t *testing.T) {
 
 	// Test case: Valid default route
 	fields := []string{"192.168.1.1"}
-	if err := cm.handleSetDefaultRoute(fields); err != nil {
-		t.Errorf("handleSetDefaultRoute failed: %v", err)
+	if err := cm.HandleSetDefaultRoute(fields); err != nil {
+		t.Errorf("HandleSetDefaultRoute failed: %v", err)
 	}
 
-	cfg := cm.configManager.GetConfig()
+	cfg := cm.GetConfig()
 	if cfg.DefaultRoute != "192.168.1.1" {
 		t.Errorf("Expected default route to be set to 192.168.1.1, got %s", cfg.DefaultRoute)
 	}
@@ -109,8 +109,8 @@ func TestHandleSave(t *testing.T) {
 	}
 
 	// Test case: Save configuration
-	if err := cm.handleSave(); err != nil {
-		t.Errorf("handleSave failed: %v", err)
+	if err := cm.HandleSave(); err != nil {
+		t.Errorf("HandleSave failed: %v", err)
 	}
 
 	// Verify that the files are identical
@@ -136,15 +136,15 @@ func TestHandleCommit(t *testing.T) {
 	}
 
 	// Set up test configuration
-	cm.configManager.SetDNS([]string{"8.8.8.8"})
-	cm.configManager.SetDefaultRoute("192.168.1.1")
-	cm.configManager.SetInterface("eth0", config.InterfaceConfig{
+	cm.SetDNS([]string{"8.8.8.8"})
+	cm.SetDefaultRoute("192.168.1.1")
+	cm.SetInterface("eth0", config.InterfaceConfig{
 		Address: "192.168.1.100",
 		MAC:     "00:11:22:33:44:55",
 	})
 
 	// Test case: Commit configuration
-	if err := cm.handleCommit(); err != nil {
-		t.Errorf("handleCommit failed: %v", err)
+	if err := cm.HandleCommit(); err != nil {
+		t.Errorf("HandleCommit failed: %v", err)
 	}
 }

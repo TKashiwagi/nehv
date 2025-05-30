@@ -8,7 +8,7 @@ import (
 
 // ValidateIPAddress validates an IP address with optional CIDR notation
 func ValidateIPAddress(ip string) error {
-	// CIDR表記の場合は、IPアドレス部分とネットマスク部分を分離
+	// If CIDR notation is used, separate IP address and network mask parts
 	if strings.Contains(ip, "/") {
 		ip, cidr, err := net.ParseCIDR(ip)
 		if err != nil {
@@ -23,7 +23,7 @@ func ValidateIPAddress(ip string) error {
 		return nil
 	}
 
-	// 通常のIPアドレスの場合
+	// For regular IP addresses
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
 		return fmt.Errorf("invalid IP address format")
@@ -33,6 +33,6 @@ func ValidateIPAddress(ip string) error {
 
 // ValidateDNSAddress validates a DNS server address
 func ValidateDNSAddress(dns string) error {
-	// DNSサーバーのアドレスはIPv4またはIPv6アドレスである必要がある
+	// DNS server address must be an IPv4 or IPv6 address
 	return ValidateIPAddress(dns)
 }
